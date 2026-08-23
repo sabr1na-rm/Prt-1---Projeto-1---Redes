@@ -187,6 +187,7 @@ void *thread_processa_e_envia_horario(void *arg) {
     }
 
     closesocket(c->socket_cliente);
+    return NULL;
 
 int main(void) {
     Cliente cliente;
