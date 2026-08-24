@@ -125,3 +125,87 @@ int main(void)
         return 1;
     }
     /
+    * CONFIGURA O ENDERECO DO SERVIDOR */
+
+    struct sockaddr_in servidor;
+
+    memset(&servidor, 0, sizeof(servidor));
+
+    servidor.sin_family = AF_INET;
+
+    /* Mesma porta usada pelo servidor */
+    servidor.sin_port = htons(PORTA);
+
+    /*127.0.0.1 significa que o servidor está rodando no mesmo computador.*/
+    servidor.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+
+    /* CONECTA AO SERVIDOR */
+
+    if (connect(socket_cliente,
+                (struct sockaddr *)&servidor,
+                sizeof(servidor)) == SOCKET_ERROR)
+    {
+        printf("Erro ao conectar ao servidor. Codigo: %d\n",
+               WSAGetLastError());
+
+        closesocket(socket_cliente);
+        WSACleanup();
+
+        return 1;
+    }
+
+    printf("Conectado ao servidor!\n");
+
+
+    /* CRIA AS DUAS THREADS */
+
+    pthread_t t1;
+    pthread_t t2;
+
+    /* Thread 1 -> teclado e envio */
+    if (pthread_create(&t1,
+                       NULL,
+                       thread_envia,
+                       NULL) != 0)
+    {
+        printf("Erro ao criar Thread 1.\n");
+
+        closesocket(socket_cliente);
+        WSACleanup();
+
+        return 1;
+    }
+
+    /* Thread 2 -> recebe mensagens */
+    if (pthread_create(&t2,
+                       NULL,
+                       thread_recebe,
+                       NULL) != 0)
+    {
+        printf("Erro ao criar Thread 2.\n");
+
+        ativo = 0;
+
+        closesocket(socket_cliente);
+        WSACleanup();
+
+        return 1;
+    }
+
+
+    /* Espera as duas threads terminarem */
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+
+
+  
+
+    closesocket(socket_cliente);
+
+    WSACleanup();
+
+    printf("\nCliente encerrado.\n");
+
+    return 0;
+}
