@@ -14,7 +14,6 @@ SOCKET socket_cliente;
 
 volatile int ativo = 1;
 
-
 /* THREAD 1 - Lê o teclado e envia os comandos/mensagens ao servidor */
 
 void *thread_envia(void *arg)
