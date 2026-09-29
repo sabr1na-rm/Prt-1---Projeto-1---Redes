@@ -10,10 +10,8 @@
 #define PORTA 8080
 #define TAM_BUFFER 1024
 
-/* Socket usado para conversar com o servidor */
 SOCKET socket_cliente;
 
-/* 1 = cliente funcionando e 0 = cliente deve encerrar*/
 volatile int ativo = 1;
 
 
@@ -28,14 +26,13 @@ void *thread_envia(void *arg)
         printf("> ");
         fflush(stdout);
 
-        /* Lê o que o usuário digitou */
         if (fgets(buffer, TAM_BUFFER, stdin) == NULL)
         {
             ativo = 0;
+            shutdown(socket_cliente, SD_BOTH); /* PARTE 2: destrava o recv da thread 2 */
             break;
         }
 
-        /* Envia o texto para o servidor */
         if (send(socket_cliente,
                  buffer,
                  (int)strlen(buffer),
@@ -43,11 +40,11 @@ void *thread_envia(void *arg)
         {
             printf("\nErro ao enviar mensagem.\n");
             ativo = 0;
+            shutdown(socket_cliente, SD_BOTH); /* PARTE 2: destrava o recv da thread 2 */
             break;
         }
 
-        /*
-           Se o usuário digitou :quit, podemos encerrar a thread de envio.*/
+        
         if (strcmp(buffer, ":quit\n") == 0 ||
             strcmp(buffer, ":quit") == 0)
         {
@@ -67,26 +64,21 @@ void *thread_recebe(void *arg)
 
     while (ativo)
     {
-        /* Limpa o buffer antes de receber uma nova mensagem */
         memset(buffer, 0, TAM_BUFFER);
 
-        /* Espera uma mensagem chegar do servidor */
         int n = recv(socket_cliente,
                      buffer,
                      TAM_BUFFER - 1,
                      0);
 
-        /*n <= 0 significa que a conexão foi encerrada ou aconteceu algum erro.*/
         if (n <= 0)
         {
             ativo = 0;
             break;
         }
 
-        /* Garante que a mensagem termine com '\0' */
         buffer[n] = '\0';
 
-        /* Mostra a mensagem recebida */
         printf("\n%s", buffer);
 
         printf("> ");
@@ -97,13 +89,11 @@ void *thread_recebe(void *arg)
 }
 
 
-/* MAIN */
 
 int main(void)
 {
     WSADATA dados_wsa;
 
-    /* Inicializa o Winsock */
     if (WSAStartup(MAKEWORD(2, 2), &dados_wsa) != 0)
     {
         printf("Erro ao inicializar o Winsock.\n");
@@ -111,8 +101,7 @@ int main(void)
     }
 
 
-    /* CRIA O SOCKET DO CLIENTE
-      AF_INET     -> IPv4 e SOCK_STREAM -> TCP */
+
 
     socket_cliente = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -124,8 +113,7 @@ int main(void)
         WSACleanup();
         return 1;
     }
-    /
-    * CONFIGURA O ENDERECO DO SERVIDOR */
+
 
     struct sockaddr_in servidor;
 
@@ -133,10 +121,8 @@ int main(void)
 
     servidor.sin_family = AF_INET;
 
-    /* Mesma porta usada pelo servidor */
     servidor.sin_port = htons(PORTA);
 
-    /*127.0.0.1 significa que o servidor está rodando no mesmo computador.*/
     servidor.sin_addr.s_addr = inet_addr("127.0.0.1");
 
 
@@ -158,7 +144,6 @@ int main(void)
     printf("Conectado ao servidor!\n");
 
 
-    /* CRIA AS DUAS THREADS */
 
     pthread_t t1;
     pthread_t t2;
@@ -194,12 +179,8 @@ int main(void)
     }
 
 
-    /* Espera as duas threads terminarem */
-    pthread_join(t1, NULL);
     pthread_join(t2, NULL);
 
-
-  
 
     closesocket(socket_cliente);
 
