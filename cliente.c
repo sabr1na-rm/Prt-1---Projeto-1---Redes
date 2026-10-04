@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <locale.h>
 #include <string.h>
 #include <pthread.h>
 #include <winsock2.h>
@@ -37,18 +38,16 @@ void *thread_envia(void *arg)
                  (int)strlen(buffer),
                  0) == SOCKET_ERROR)
         {
-            printf("\nErro ao enviar mensagem.\n");
-            ativo = 0;
+            if(ativo) {
+                printf("\nErro ao enviar mensagem. Conexão perdida.\n");
+                ativo = 0;
+            }
             shutdown(socket_cliente, SD_BOTH); /* PARTE 2: destrava o recv da thread 2 */
             break;
         }
 
-        
-        if (strcmp(buffer, ":quit\n") == 0 ||
-            strcmp(buffer, ":quit") == 0)
-        {
-            break;
-        }
+
+        if (!ativo) break; /*Sai do loop se o comando foi quit*/
     }
 
     return NULL;
@@ -72,7 +71,11 @@ void *thread_recebe(void *arg)
 
         if (n <= 0)
         {
-            ativo = 0;
+            if (ativo) {
+                printf("\nA conexão com o servidor foi encerrada inesperadamente.\n");
+                printf("Pressione ENTER para fechar...\n");
+                ativo = 0;
+            }
             break;
         }
 
@@ -92,6 +95,7 @@ void *thread_recebe(void *arg)
 int main(void)
 {
     WSADATA dados_wsa;
+    setlocale(LC_ALL, "Portuguese");
 
     if (WSAStartup(MAKEWORD(2, 2), &dados_wsa) != 0)
     {

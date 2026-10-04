@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <locale.h>
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <signal.h>
+
+SOCKET socket_escuta_global = INVALID_SOCKET;
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -268,13 +272,47 @@ void *thread_trabalho(void *arg)
     return NULL;
 }
 
+void trata_sinal(int sig)
+{
+    if (sig == SIGINT) {
+        printf("\n\nEncerrando o servidor de forma limpa...\n");
+
+        if (socket_escuta_global != INVALID_SOCKET) {
+            closesocket(socket_escuta_global);
+        }
+
+        pthread_mutex_lock(&mutex_contador);
+        if (lista_clientes != NULL) {
+            for (int i = 0; i < max_clientes; i++) {
+                if (lista_clientes[i] != NULL && lista_clientes[i]->ativo) {
+                    char *msg_fim = "\nO servidor esta sendo desligado. Desconectando...\n";
+                    send(lista_clientes[i]->socket, msg_fim, (int)strlen(msg_fim), 0);
+
+                    lista_clientes[i]->ativo = 0;
+                    shutdown(lista_clientes[i]->socket, SD_BOTH);
+                    closesocket(lista_clientes[i]->socket);
+                }
+            }
+            free(lista_clientes);
+        }
+        pthread_mutex_unlock(&mutex_contador);
+
+        WSACleanup();
+        printf("Recursos liberados. Fim da execução.\n");
+        exit(0);
+    }
+}
+
 int main(int argc, char *argv[])
 {
+    signal(SIGINT, trata_sinal);
+
     WSADATA dados_wsa;
     SOCKET socket_escuta;
     struct sockaddr_in endereco_servidor;
     struct sockaddr_in endereco_cliente;
     int tam_endereco;
+    setlocale(LC_ALL, "Portuguese");
 
     /* PARTE 2: limite de clientes vem da linha de comando */
     if(argc != 2 || atoi(argv[1]) <= 0)
@@ -293,6 +331,7 @@ int main(int argc, char *argv[])
     }
 
     socket_escuta = socket(AF_INET, SOCK_STREAM, 0);
+    socket_escuta_global = socket_escuta;
     if(socket_escuta == INVALID_SOCKET)
     {
         printf("Erro ao criar socket. Codigo: %d\n", WSAGetLastError());
